@@ -33,11 +33,14 @@
 #define BUTTON1 3
 float capacity = 5.0;   // Ah
 float soc = 100.0; // initial charge percent
-float current = 20.0; // amperes
+float current = 10.0; // amperes, default value
 float dt = 1.0 / 3600.0; // 1 second in hours
+float voltage = 11.1;
 
 int screen = 0;
 int last_button_state = HIGH;
+
+
 
 
 DHT dht(DHTPIN, DHTTYPE);
@@ -58,16 +61,26 @@ void setup() {
 
 void loop() {
   int button_state = digitalRead(BUTTON1);
+  int light_level = analogRead(A5);
   float humidity = dht.readHumidity();
   float temperature = dht.readTemperature();   // Celsius
+  float solar_power = map(light_level, 0, 1023, 0, 1000) / 10.0;
+  float solar_current = solar_power / voltage;
+  
+  int throttle = analogRead(A0);
+
+  current = map(throttle, 0, 1023, 0, 200) / 10.0;
+
+  float net_current = current - solar_current;
+
+  
+
   if (millis() - last_battery_update >= 1000) {
     last_battery_update = millis();
 
-    soc -= (100.0 / capacity) * current * dt;
+    soc -= (100.0 / capacity) * net_current * dt;
 
-    if (soc < 0) {
-        soc = 0;
-    }
+    soc = constrain(soc, 0, 100);
 }
 
   // Detect a button press
@@ -76,7 +89,7 @@ void loop() {
 
     screen++;
 
-    if (screen > 1) {
+    if (screen > 2) {
         screen = 0;
     }
     lcd.clear();
@@ -118,12 +131,20 @@ void loop() {
 
     lcd.setCursor(0, 1);
     lcd.print("Current: ");
-    lcd.print(current, 1);
+    lcd.print(net_current, 1);
     lcd.print("A  ");
+    }
+    else if (screen == 2) {
+    lcd.setCursor(0, 0);
+    lcd.print("Solar: ");
+    lcd.print(solar_power, 1);
+    lcd.print("W    ");
+
+}
 }
 
 
   
  
   
-}
+
